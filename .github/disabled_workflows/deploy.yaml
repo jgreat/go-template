@@ -1,0 +1,128 @@
+name: deploy
+
+on:
+  push:
+    tags:
+    - 'v*.*.*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REPO: %REPO%
+  DOCKER_ORG: jgreat
+  CHART_REPO: %CHART_REPO%
+  NAMESPACE: %NAMESPACE%
+
+jobs:
+  build:
+    runs-on: [self-hosted, Linux, small]
+    container: golang:1.20
+    steps:
+    - name: install zstd for gh cache bug
+      run: |
+        apt-get update -y
+        apt-get install -y zstd
+
+    - name: Checkout
+      uses: mobilecoinofficial/gh-actions/checkout@v0
+
+    - name: Cache
+      id: cache
+      uses: mobilecoinofficial/gh-actions/cache-go-binaries@v0
+      with:
+        cache_buster: ${{ vars.CACHE_BUSTER }}
+
+    - name: Build
+      if: "! steps.cache.outputs.cache-hit"
+      run: |
+        go mod vendor
+        go build -v
+
+    - name: Copy binaries to cache
+      if: "! steps.cache.outputs.cache-hit"
+      run: |
+        mkdir -p cache/
+        cp %REPO% cache/
+
+  publish:
+    runs-on: [self-hosted, Linux, small]
+    needs:
+    - build
+    steps:
+    - name: Checkout
+      uses: mobilecoinofficial/gh-actions/checkout@v0
+
+    - name: Cache
+      uses: mobilecoinofficial/gh-actions/cache-go-binaries@v0
+      with:
+        cache_buster: ${{ vars.CACHE_BUSTER }}
+
+    - name: Copy binaries from cache
+      run: |
+        cp cache/%REPO% ./
+
+    - name: Docker
+      uses: mobilecoinofficial/gh-actions/docker@v0
+      with:
+        dockerfile: .internal-ci/docker/Dockerfile.${{ env.REPO }}
+        flavor: latest=true
+        images: ${{ env.DOCKER_ORG }}/${{ env.REPO }}
+        tags: |
+          type=ref,event=branch
+          type=semver,pattern=v{{version}}
+          type=sha
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Publish helm chart
+      uses: mobilecoinofficial/gha-k8s-toolbox@v1
+      with:
+        action: helm-publish
+        chart_app_version: ${{ github.ref_name }}
+        chart_path: .internal-ci/helm/${{ env.REPO }}
+        chart_repo: ${{ env.CHART_REPO }}
+        chart_repo_password: ${{ secrets.HARBOR_PASSWORD }}
+        chart_repo_username: ${{ secrets.HARBOR_USERNAME }}
+        chart_version: ${{ github.ref_name }}
+
+  release:
+    runs-on: [self-hosted, Linux, small]
+    needs: publish
+    steps:
+    - name: Create a GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        generate_release_notes: true
+
+  deploy:
+    runs-on: [self-hosted, Linux, small]
+    needs: publish
+    steps:
+    - name: Create namespace
+      uses: mobilecoinofficial/gha-k8s-toolbox@v1
+      with:
+        action: namespace-create
+        namespace: ${{ env.NAMESPACE }}
+        rancher_cluster: ${{ vars.RANCHER_CLUSTER }}
+        rancher_url: ${{ vars.RANCHER_URL }}
+        rancher_token: ${{ secrets.RANCHER_TOKEN }}
+
+    - name: Deploy
+      uses: mobilecoinofficial/gha-k8s-toolbox@v1
+      with:
+        action: helm-deploy
+        chart_repo_username: ${{ secrets.HARBOR_USERNAME }}
+        chart_repo_password: ${{ secrets.HARBOR_PASSWORD }}
+        chart_repo: ${{ env.CHART_REPO }}
+        chart_name: ${{ env.REPO }}
+        chart_version: ${{ github.ref_name }}
+        release_name: ${{ env.REPO }}
+        namespace: ${{ env.NAMESPACE }}
+        rancher_cluster: ${{ vars.RANCHER_CLUSTER }}
+        rancher_url: ${{ vars.RANCHER_URL }}
+        rancher_token: ${{ secrets.RANCHER_TOKEN }}

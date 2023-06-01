@@ -1,0 +1,13 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "%REPO%.fullname" . }}
+  labels:
+    publish: grafana-cloud
+    {{- include "%REPO%.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "%REPO%.selectorLabels" . | nindent 6 }}
+  endpoints:
+  - port: metrics

@@ -1,0 +1,17 @@
+FROM ubuntu:jammy
+
+RUN  addgroup --system --gid 1000 app \
+  && adduser --system --ingroup app --uid 1000 app
+
+RUN  apt-get update \
+  && apt-get upgrade -y \
+  && apt-get install -y ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY %REPO% /usr/local/bin
+
+USER app
+
+ENV LISTEN_HOST=0.0.0.0
+
+CMD ["/usr/local/bin/%REPO%"]

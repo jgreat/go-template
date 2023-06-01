@@ -1,0 +1,28 @@
+# This docker-compose is for local development
+version: '3.8'
+
+services:
+  stay-up:
+    image: ubuntu
+    command: sleep infinity
+
+  api:
+    build:
+      context: .
+      dockerfile: ./.internal-ci/docker/Dockerfile.dev
+    ports:
+    - "127.0.0.1:9090:9090"
+    - "127.0.0.1:2345:2345"
+    environment:
+      FULL_SERVICE_URL: "https://readonly-fs-mainnet.mobilecoin.com/wallet/v2"
+      MC_NETWORK: main
+      LOG_LEVEL: debug
+      LISTEN_HOST: 0.0.0.0
+    restart: always
+    volumes:
+    - ".:/app"
+    - "pkg:/go/pkg/"
+
+volumes:
+  pkg:
+    driver: local
