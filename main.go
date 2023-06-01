@@ -141,12 +141,6 @@ func setupConfig() *config {
 		log.Fatalf("Unable to parse TIMEOUT: %v", err)
 	}
 
-	// Number of nodes in the network
-	numOfNodes, err := strconv.Atoi(getEnv("NUM_OF_NODES", "10"))
-	if err != nil {
-		log.Fatalf("Unable to parse NUM_OF_NODES: %v", err)
-	}
-
 	return &config{
 		url:        getEnv("FULL_SERVICE_URL", "https://readonly-fs-mainnet.mobilecoin.com/wallet/v2"),
 		mcNetwork:  getEnv("MC_NETWORK", "main"),
@@ -154,7 +148,6 @@ func setupConfig() *config {
 		timeout:    time.Duration(timeout) * time.Second,
 		listenHost: listenHost,
 		listenPort: listenPort,
-		numOfNodes: numOfNodes,
 	}
 }
 

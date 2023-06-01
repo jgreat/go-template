@@ -1,5 +1,6 @@
 {
   "yaml.schemas": {
-    "https://json.schemastore.org/github-workflow.json": "file:///home/jgreat/gopath/template/src/github.com/jgreat/go-template/.github/workflows/deploy.yaml"
+    "https://json.schemastore.org/github-workflow.json": "file:///home/jgreat/gopath/template/src/github.com/jgreat/go-template/.github/workflows/deploy.yaml",
+    "https://json.schemastore.org/github-action.json": "file:///home/jgreat/gopath/template/src/github.com/jgreat/go-template/.github/disabled_workflows/deploy.yaml"
   }
 }
